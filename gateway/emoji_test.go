@@ -10,3 +10,10 @@ func TestEmojiSprintKeepsMarkup(t *testing.T) {
 		t.Errorf("got %q", got)
 	}
 }
+
+func TestNameChannelMentions(t *testing.T) {
+	extra := map[string][]any{"discord_channels": {map[string]any{"1": "support"}}}
+	if got := nameChannelMentions("see <#1> and <#2>", extra); got != "see #support and #channel" {
+		t.Errorf("got %q", got)
+	}
+}

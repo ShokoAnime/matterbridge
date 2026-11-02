@@ -186,9 +186,10 @@ func (gw *Gateway) SendMessage( //nolint:gocyclo,funlen
 		return "", nil
 	}
 
-	// Custom emoji markup (<:name:id>) only means something to Discord-like destinations.
+	// Custom emoji markup (<:name:id>) and channel mentions (<#id>) only mean something to Discord-like destinations.
 	if !keepsCustomEmoji(dest.Protocol) {
 		msg.Text = stripCustomEmoji(msg.Text)
+		msg.Text = nameChannelMentions(msg.Text, msg.Extra)
 	}
 
 	if dest.Protocol == apiProtocol {

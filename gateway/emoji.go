@@ -19,6 +19,28 @@ func keepsCustomEmoji(protocol string) bool {
 	return false
 }
 
+var channelMentionRE = regexp.MustCompile(`<#(\d+)>`)
+
+// nameChannelMentions turns <#id> into #name, using Extra["discord_channels"] ({id: name}) when the source sent it.
+func nameChannelMentions(text string, extra map[string][]any) string {
+	names := map[string]any{}
+	if extra != nil && len(extra["discord_channels"]) > 0 {
+		if m, ok := extra["discord_channels"][0].(map[string]string); ok {
+			for k, v := range m {
+				names[k] = v
+			}
+		} else if m, ok := extra["discord_channels"][0].(map[string]any); ok {
+			names = m
+		}
+	}
+	return channelMentionRE.ReplaceAllStringFunc(text, func(m string) string {
+		if n, ok := names[m[2:len(m)-1]].(string); ok && n != "" {
+			return "#" + n
+		}
+		return "#channel"
+	})
+}
+
 // stripCustomEmoji turns <:name:id> into :name: for destinations that can't render it.
 func stripCustomEmoji(text string) string {
 	return customEmojiRE.ReplaceAllString(text, ":$1:")

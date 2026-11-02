@@ -177,6 +177,7 @@ func (r *Router) handleReceive() {
 					gw.Messages.Add(msg.Protocol+" "+msg.ID, msgIDs)
 					r.msgStore.add(gw.Name, msg.Protocol+" "+msg.ID, msgIDs)
 				}
+				r.sendReceipt(gw, &msg, msgIDs)
 			}
 		}
 	}

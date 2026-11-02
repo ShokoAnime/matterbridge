@@ -167,11 +167,21 @@ func (b *Bdiscord) relayMessage(s *discordgo.Session, m *discordgo.MessageCreate
 	b.Log.Debugf("== Receiving event %#v", m.Message)
 
 	if m.Content != "" {
-		m.Message.Content = b.replaceChannelMentions(m.Message.Content)
+		var channels map[string]string
+		if b.GetBool("PreserveChannelMentions") {
+			// keep <#id> for clients that map channels (names in Extra["discord_channels"] for everyone else)
+			m.Message.Content, channels = b.protectChannelMentions(m.Message.Content)
+		} else {
+			m.Message.Content = b.replaceChannelMentions(m.Message.Content)
+		}
 		rmsg.Text, err = m.ContentWithMoreMentionsReplaced(b.c)
 		if err != nil {
 			b.Log.Errorf("ContentWithMoreMentionsReplaced failed: %s", err)
 			rmsg.Text = m.ContentWithMentionsReplaced()
+		}
+		if channels != nil {
+			rmsg.Text = restoreChannelMentions(rmsg.Text)
+			rmsg.Extra["discord_channels"] = []any{channels}
 		}
 	}
 
