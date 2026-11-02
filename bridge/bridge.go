@@ -397,13 +397,14 @@ func (b *Bridge) addAttachmentNoURL(msg *config.Message, filename string, id str
 	return b.addAttachmentProcess(msg, filename, id, comment, "", data, avatar)
 }
 
-type errFileTooLarge struct {
+// ErrFileTooLarge is returned when an attachment exceeds MediaDownloadSize.
+type ErrFileTooLarge struct {
 	FileName string
 	Size     int
 	MaxSize  int
 }
 
-func (e *errFileTooLarge) Error() string {
+func (e *ErrFileTooLarge) Error() string {
 	return fmt.Sprintf("File %#v to large to download (%#v). MediaDownloadSize is %#v", e.FileName, e.Size, e.MaxSize)
 }
 
@@ -418,7 +419,7 @@ func (e *errFileBlacklisted) Error() string {
 func (b *Bridge) addAttachmentProcess(msg *config.Message, filename string, id string, comment string, uri string, data *[]byte, avatar bool) error {
 	size := len(*data)
 	if size > b.General.MediaDownloadSize {
-		return &errFileTooLarge{
+		return &ErrFileTooLarge{
 			FileName: filename,
 			Size:     size,
 			MaxSize:  b.General.MediaDownloadSize,

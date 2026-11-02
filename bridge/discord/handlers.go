@@ -1,11 +1,13 @@
 package bdiscord
 
 import (
+	"errors"
 	"strings"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/davecgh/go-spew/spew"
+	"github.com/matterbridge-org/matterbridge/bridge"
 	"github.com/matterbridge-org/matterbridge/bridge/config"
 )
 
@@ -231,6 +233,15 @@ func (b *Bdiscord) relayMessage(s *discordgo.Session, m *discordgo.MessageCreate
 			err := b.AddAttachmentFromURL(&rmsg, attach.Filename, attach.ID, "", attach.URL)
 			if err != nil {
 				b.Log.WithError(err).Warnf("Failed to download attachment %s", attach.Filename)
+				// too big to carry along: link it instead, so the other side still gets the file
+				var tooLarge *bridge.ErrFileTooLarge
+				if errors.As(err, &tooLarge) {
+					if rmsg.Text != "" {
+						rmsg.Text += "\n"
+					}
+					rmsg.Text += attach.URL
+					count += 1
+				}
 				continue
 			}
 
