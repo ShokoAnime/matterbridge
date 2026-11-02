@@ -2,6 +2,8 @@ package bdiscord
 
 import (
 	"fmt"
+	"net/url"
+	"regexp"
 	"strings"
 )
 
@@ -29,13 +31,42 @@ func (b *Bdiscord) replyHeader(channelID, threadID, parentID string) string {
 			who = "**" + escapeMarkdown(pm.Author.Username) + "**"
 		}
 	}
+	content := pm.Content
+	if resolved, err := pm.ContentWithMoreMentionsReplaced(b.c); err == nil { // <@id> -> @nick, <#id> -> #channel...
+		content = resolved
+	}
+	content = b.replaceChannelMentions(content)
 	return fmt.Sprintf("-# ↪ %s · [%s](https://discord.com/channels/%s/%s/%s)",
-		who, replySnippet(pm.Content, len(pm.Attachments) > 0, len(pm.Embeds) > 0), b.guildID, ch, parentID)
+		who, replySnippet(content, len(pm.Attachments) > 0, len(pm.Embeds) > 0), b.guildID, ch, parentID)
+}
+
+var (
+	snippetURLRE   = regexp.MustCompile(`https?://[^\s<>]+`)
+	snippetMarkRE  = regexp.MustCompile(`<a?(:\w+:)\d+>|<@[!&]?\d+>|<#\d+>|<t:\d+(?::\w)?>`)
+	snippetSpaceRE = regexp.MustCompile(`\s+`)
+)
+
+// snippetText makes a quote safe for a masked link label: Discord won't render a label that contains a URL, and
+// mention or emoji markup doesn't work inside one.
+func snippetText(s string) string {
+	s = snippetURLRE.ReplaceAllStringFunc(s, func(u string) string {
+		if p, err := url.Parse(u); err == nil && p.Host != "" {
+			return "🔗 " + strings.TrimPrefix(p.Host, "www.")
+		}
+		return "🔗"
+	})
+	s = snippetMarkRE.ReplaceAllStringFunc(s, func(m string) string {
+		if sub := snippetMarkRE.FindStringSubmatch(m); sub[1] != "" {
+			return sub[1] // custom emoji -> :name:
+		}
+		return "@…"
+	})
+	return strings.TrimSpace(snippetSpaceRE.ReplaceAllString(s, " "))
 }
 
 // replySnippet is the start of the parent's first line, safe inside a masked link.
 func replySnippet(content string, hasFiles, hasEmbeds bool) string {
-	line := strings.TrimSpace(strings.SplitN(content, "\n", 2)[0])
+	line := snippetText(strings.SplitN(content, "\n", 2)[0])
 	if line == "" {
 		switch {
 		case hasFiles:
@@ -52,6 +83,8 @@ func replySnippet(content string, hasFiles, hasEmbeds bool) string {
 	return escapeMarkdown(line)
 }
 
-var markdownEscaper = strings.NewReplacer("[", "\\[", "]", "\\]", "*", "\\*", "_", "\\_", "`", "\\`", "~", "\\~", "|", "\\|", ">", "\\>")
+// Escapes markdown that would break or restyle the link label. "<" and ">" are left alone: escaping them shows the
+// backslash.
+var markdownEscaper = strings.NewReplacer("[", "\\[", "]", "\\]", "*", "\\*", "_", "\\_", "`", "\\`", "~", "\\~", "|", "\\|")
 
 func escapeMarkdown(s string) string { return markdownEscaper.Replace(s) }

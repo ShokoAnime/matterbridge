@@ -10,6 +10,9 @@ func TestReplySnippet(t *testing.T) {
 	}{
 		{"hello there\nsecond line", false, false, "hello there"},
 		{"see [this](x) *now*", false, false, "see \\[this\\](x) \\*now\\*"},
+		{"One for <@308830889281060864> https://www.ebay.com/itm/ABSURD-Studio-Tayama-Figure", false, false, "One for @… 🔗 ebay.com"},
+		{"look <:shoko:123> at <#456>", false, false, "look :shoko: at @…"},
+		{"a > b", false, false, "a > b"},
 		{"", true, false, "attachment"},
 		{"", false, true, "embed"},
 		{"", false, false, "message"},
