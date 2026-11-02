@@ -24,6 +24,8 @@ type Bdiscord struct {
 
 	c *discordgo.Session
 
+	emoji guildEmoji
+
 	nick    string
 	userID  string
 	guildID string
@@ -284,6 +286,11 @@ func (b *Bdiscord) Send(msg config.Message) (string, error) {
 	// Make a action /me of the message
 	if msg.Event == config.EventUserAction {
 		msg.Text = "_" + msg.Text + "_"
+	}
+
+	// :name: -> this server's custom emoji of that name
+	if msg.Event != config.EventMsgDelete {
+		msg.Text = b.replaceGuildEmoji(msg.Text)
 	}
 
 	// Handle prefix hint for unthreaded messages.

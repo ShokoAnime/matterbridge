@@ -11,7 +11,6 @@ import (
 	"github.com/d5/tengo/v2"
 	"github.com/d5/tengo/v2/stdlib"
 	lru "github.com/hashicorp/golang-lru/v2"
-	"github.com/kyokomi/emoji/v2"
 	"github.com/matterbridge-org/matterbridge/bridge"
 	"github.com/matterbridge-org/matterbridge/bridge/config"
 	"github.com/matterbridge-org/matterbridge/gateway/bridgemap"
@@ -172,6 +171,22 @@ func (gw *Gateway) SendMessage( //nolint:gocyclo,funlen
 	default:
 		debugSendMessage = fmt.Sprintf("=> Sending %#v from %s (%s) to %s (%s)", msg, msg.Account, rmsg.Channel, dest.Account, channel.Name)
 		msg.ID = gw.getDestMsgID(rmsg.Protocol+" "+rmsg.ID, dest, channel)
+	}
+
+	if rmsg.ID != "" {
+		msg.SourceID = rmsg.Protocol + " " + rmsg.ID
+	}
+
+	// An edit (or delete) of a message we have no mapping for would otherwise go out as a brand-new
+	// message. API clients keep their own mapping keyed on SourceID, so they still get it.
+	if (rmsg.IsEdit || msg.Event == config.EventMsgDelete) && msg.ID == "" && dest.Protocol != apiProtocol {
+		gw.logger.Debugf("=> Dropping edit/delete of unknown message %s for %s (%s)", msg.SourceID, dest.Account, channel.Name)
+		return "", nil
+	}
+
+	// Custom emoji markup (<:name:id>) only means something to Discord-like destinations.
+	if !keepsCustomEmoji(dest.Protocol) {
+		msg.Text = stripCustomEmoji(msg.Text)
 	}
 
 	if dest.Protocol == apiProtocol {
@@ -599,9 +614,8 @@ func (gw *Gateway) modifyMessage(msg *config.Message) {
 		gw.logger.Errorf("Tengo.Message failed: %s", err)
 	}
 
-	// replace :emoji: to unicode
-	emoji.ReplacePadding = ""
-	msg.Text = emoji.Sprint(msg.Text)
+	// replace :emoji: to unicode (custom emoji markup is left alone)
+	msg.Text = emojiSprint(msg.Text)
 
 	br := gw.Bridges[msg.Account]
 	// loop to replace messages

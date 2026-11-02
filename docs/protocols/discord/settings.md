@@ -84,6 +84,19 @@ The only available placeholders are `{TITLE}`, `{URL}` (a URL), `{DESCRIPTION}`,
   EmbedFormat="\n# {TITLE} ({URL}) by {AUTHOR} ({AUTHORURL})\n{DESCRIPTION}\n{TIME}\n{FOOTER}"
   ```
 
+## PreserveCustomEmoji
+
+Keep custom emoji as `<:name:id>` / `<a:name:id>` markup instead of reducing them to `:name:`. Bridges that can
+render or map it (Discord, Fluxer, API clients) receive it as is; for all others the gateway still turns it into
+`:name:`. Outgoing `:name:` text is turned into this server's custom emoji of that name either way.
+
+- Setting: **OPTIONAL**, **RELOADABLE**
+- Format: *boolean*
+- Example:
+  ```toml
+  PreserveCustomEmoji=true
+  ```
+
 ## UseUserName
 
 Shows the username instead of the server nickname

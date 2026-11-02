@@ -20,7 +20,8 @@ type Router struct {
 	Message          chan config.Message
 	MattermostPlugin chan config.Message
 
-	logger *logrus.Entry
+	msgStore *msgStore
+	logger   *logrus.Entry
 }
 
 // NewRouter initializes a new Matterbridge router for the specified configuration and
@@ -106,6 +107,10 @@ func (r *Router) Start() error {
 			}
 		}
 	}
+	storePath, _ := r.GetString("general.MessageIDStore")
+	r.msgStore = openMsgStore(storePath, r.logger)
+	r.msgStore.load(r.Gateways)
+
 	go r.handleReceive()
 	//go r.updateChannelMembers()
 	return nil
@@ -168,8 +173,9 @@ func (r *Router) handleReceive() {
 				// For some bridges we always add/update the message ID.
 				// This is necessary as msgIDs will change if a bridge returns
 				// a different ID in response to edits.
-				if !exists {
+				if !exists && len(msgIDs) > 0 {
 					gw.Messages.Add(msg.Protocol+" "+msg.ID, msgIDs)
+					r.msgStore.add(gw.Name, msg.Protocol+" "+msg.ID, msgIDs)
 				}
 			}
 		}

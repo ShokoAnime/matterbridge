@@ -130,6 +130,17 @@ curl -XPOST -H 'Content-Type: application/json'  -d '{"text":"test","username":"
 {"text":"test","channel":"api","username":"randomuser","userid":"","avatar":"","account":"api.local","event":"","protocol":"api","gateway":"gateway1","parent_id":"","timestamp":"2019-01-09T22:53:51.618575236+01:00","id":"","Extra":null}
 ```
 
+## Message ids, edits and deletes
+
+Every message streamed to a client carries `source_id` (`"<protocol> <id>"` of the original message). Edits arrive
+with `"is_edit": true` and the same `source_id`; deletes arrive with `"event": "msg_delete"`. `id` holds the id the
+API returned for the original, but it is empty when the gateway no longer knows it, so clients should keep their own
+mapping keyed on `source_id`.
+
+Clients may send their own message `id` with `POST /api/message` (and on the websocket). Later posts with the same
+`id` and `"is_edit": true` are delivered as edits, and `{"event": "msg_delete", "id": "...", "text": "msg_delete"}`
+deletes the bridged copies. Allowed client events are `""`, `user_action` and `msg_delete`.
+
 ## Security
 You can also protect the API with a token by adding a `token` option to your api account configuration.
 

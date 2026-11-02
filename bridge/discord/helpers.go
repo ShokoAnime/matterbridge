@@ -3,6 +3,7 @@ package bdiscord
 import (
 	"errors"
 	"regexp"
+	"strconv"
 	"strings"
 	"unicode"
 
@@ -43,8 +44,9 @@ func getGlobalNick(user *discordgo.User) string {
 }
 
 func (b *Bdiscord) getNick(user *discordgo.User, guildID string) string {
-	b.membersMutex.RLock()
-	defer b.membersMutex.RUnlock()
+	// full lock: a cache miss below writes to the member maps
+	b.membersMutex.Lock()
+	defer b.membersMutex.Unlock()
 
 	if member, ok := b.userMemberMap[user.ID]; ok {
 		if member.Nick != "" {
@@ -276,3 +278,69 @@ func enumerateUsernames(s string) []string {
 	}
 	return usernames
 }
+
+// avatarURL returns the avatar people see for this author in our guild: the per-server (guild member)
+// avatar if they set one, else their global avatar, else Discord's default avatar.
+func (b *Bdiscord) avatarURL(user *discordgo.User, member *discordgo.Member, fromWebhook bool) string {
+	if user == nil {
+		return ""
+	}
+	if !fromWebhook {
+		hash := ""
+		if member != nil {
+			hash = member.Avatar
+		}
+		if hash == "" {
+			b.membersMutex.RLock()
+			if cached, ok := b.userMemberMap[user.ID]; ok && cached != nil {
+				hash = cached.Avatar
+			}
+			b.membersMutex.RUnlock()
+		}
+		if hash != "" {
+			return "https://cdn.discordapp.com/guilds/" + b.guildID + "/users/" + user.ID + "/avatars/" + hash + ".png?size=256"
+		}
+	}
+	if user.Avatar != "" {
+		return "https://cdn.discordapp.com/avatars/" + user.ID + "/" + user.Avatar + ".png?size=256"
+	}
+	// default avatars: new-style usernames use (id >> 22) % 6, legacy discriminators use discrim % 5
+	idx := 0
+	if user.Discriminator == "" || user.Discriminator == "0" {
+		if id, err := strconv.ParseUint(user.ID, 10, 64); err == nil {
+			idx = int((id >> 22) % 6)
+		}
+	} else if d, err := strconv.Atoi(user.Discriminator); err == nil {
+		idx = d % 5
+	}
+	return "https://cdn.discordapp.com/embed/avatars/" + strconv.Itoa(idx) + ".png"
+}
+
+// webhookUsername makes a name Discord accepts for a webhook post: 1-80 characters (cut on a character
+// boundary), without the reserved words "discord"/"clyde" (a lookalike letter is swapped in) and not
+// exactly "everyone"/"here".
+func webhookUsername(name string) string {
+	name = strings.TrimSpace(name)
+	name = reservedDiscordRE.ReplaceAllStringFunc(name, func(w string) string {
+		r := []rune(w)
+		switch r[len(r)-1] {
+		case 'd', 'D': // discord -> discоrd (Cyrillic о)
+			r[4] = 'о'
+		default: // clyde -> clydе (Cyrillic е)
+			r[4] = 'е'
+		}
+		return string(r)
+	})
+	if l := strings.ToLower(name); l == "everyone" || l == "here" {
+		name += "​"
+	}
+	if r := []rune(name); len(r) > 80 {
+		name = string(r[:80])
+	}
+	if name == "" {
+		name = "unknown"
+	}
+	return name
+}
+
+var reservedDiscordRE = regexp.MustCompile(`(?i)discord|clyde`)

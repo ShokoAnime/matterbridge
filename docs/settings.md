@@ -196,6 +196,18 @@ Example: enable it
 
 `IgnoreFailureOnStart=true`
 
+## MessageIDStore
+
+File where the message-id mappings between bridges are kept, so edits, deletes and replies of older messages still
+find their counterpart after a restart. Without it the mappings live only in memory (lost on restart). The file is
+append-only JSON lines and is compacted on startup.
+
+Setting: OPTIONAL, GENERAL \
+Format: string (path) \
+Example:
+
+`MessageIDStore="/data/msgids.jsonl"`
+
 ## LogFile
 
 LogFile defines the location of a file to write logs into, rather than stdout.

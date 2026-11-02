@@ -141,10 +141,7 @@ func (b *Bdiscord) handleEventWebhook(msg *config.Message, channelID string) (st
 		return "", nil
 	}
 
-	// discord username must be [0..32] max
-	if len(msg.Username) > 32 {
-		msg.Username = msg.Username[0:32]
-	}
+	msg.Username = webhookUsername(msg.Username)
 
 	if msg.ID != "" {
 		// Exploit that a discord message ID is actually just a large number, and we encode a list of IDs by separating them with ";".

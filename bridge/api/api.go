@@ -110,8 +110,9 @@ func (b *API) JoinChannel(channel config.ChannelInfo) error {
 func (b *API) Send(msg config.Message) (string, error) {
 	b.Lock()
 	defer b.Unlock()
-	// ignore delete messages
-	if msg.Event == config.EventMsgDelete {
+	// Deletes, edits and new messages all go to the client. msg.ID is the id we returned for the original
+	// (empty if the gateway lost it); SourceID is stable, so clients should key their own mapping on it.
+	if msg.Event == config.EventMsgDelete && msg.ID == "" && msg.SourceID == "" {
 		return "", nil
 	}
 	b.Log.Debugf("enqueueing message from %s on ring buffer", msg.Username)
@@ -119,10 +120,14 @@ func (b *API) Send(msg config.Message) (string, error) {
 
 	data, err := json.Marshal(msg)
 	if err != nil {
-		b.Log.Errorf("failed to encode message  '%s'", msg)
+		b.Log.Errorf("failed to encode message '%v': %s", msg, err)
 	}
 	_ = b.mrouter.Broadcast(data)
-	return "", nil
+
+	if msg.ID != "" {
+		return msg.ID, nil
+	}
+	return msg.SourceID, nil
 }
 
 func (b *API) handleHealthcheck(c echo.Context) error {
@@ -138,8 +143,10 @@ func (b *API) handlePostMessage(c echo.Context) error {
 	message.Channel = "api"
 	message.Protocol = "api"
 	message.Account = b.Account
-	message.ID = ""
 	message.Timestamp = time.Now()
+	if !b.acceptClientMessage(&message) {
+		return echo.NewHTTPError(http.StatusBadRequest, "unsupported event")
+	}
 
 	var (
 		fm map[string]any
@@ -221,8 +228,10 @@ func (b *API) handleWebsocketMessage(message config.Message, s *melody.Session) 
 	message.Channel = "api"
 	message.Protocol = "api"
 	message.Account = b.Account
-	message.ID = ""
 	message.Timestamp = time.Now()
+	if !b.acceptClientMessage(&message) {
+		return
+	}
 
 	data, err := json.Marshal(message)
 	if err != nil {
@@ -243,4 +252,19 @@ func (b *API) handleWebsocket(c echo.Context) error {
 	}
 
 	return nil
+}
+
+// acceptClientMessage sanitizes a message posted by an API client. Clients may set ID (their own message
+// id, so later edits/deletes and replies can be matched), Event "msg_delete", IsEdit and ParentID.
+func (b *API) acceptClientMessage(m *config.Message) bool {
+	m.SourceID = ""
+	switch m.Event {
+	case "", config.EventUserAction, config.EventMsgDelete:
+	default:
+		return false
+	}
+	if m.Event == config.EventMsgDelete && m.ID == "" {
+		return false
+	}
+	return true
 }

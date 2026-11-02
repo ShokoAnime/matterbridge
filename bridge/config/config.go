@@ -49,7 +49,12 @@ type Message struct {
 	ParentID  string    `json:"parent_id"`
 	Timestamp time.Time `json:"timestamp"`
 	ID        string    `json:"id"`
-	Extra     map[string][]any
+	// SourceID is "<protocol> <id>" of the message on the bridge it came from. The gateway fills it in
+	// for every destination, so a bridge that keeps its own id mapping (e.g. an API client) can key on it.
+	SourceID string `json:"source_id,omitempty"`
+	// IsEdit marks an edit of an earlier message (msg.ID is then the id to edit, or empty if unknown).
+	IsEdit bool `json:"is_edit,omitempty"`
+	Extra  map[string][]any
 }
 
 func (m Message) ParentNotFound() bool {
@@ -143,6 +148,7 @@ type Protocol struct {
 	DisableMarkdownParsing bool     // matrix
 	DisableWebPagePreview  bool     // telegram
 	EditSuffix             string   // mattermost, slack, discord, telegram
+	PreserveCustomEmoji    bool     // discord: keep <:name:id> markup (the gateway strips it for bridges that can't use it)
 	EditDisable            bool     // mattermost, slack, discord, telegram
 	EditMaxDays            int      // discord
 	EmbedFormat            string   // discord
@@ -430,7 +436,12 @@ func (c *config) GetStringSlice2D(key string) ([][]string, bool) {
 	c.RLock()
 	defer c.RUnlock()
 
-	res, ok := c.v.Get(key).([]any)
+	raw := c.v.Get(key)
+	if raw == nil { // not set: nothing to report
+		return nil, false
+	}
+
+	res, ok := raw.([]any)
 	if !ok {
 		c.logger.Errorf("GetStringSlice2D: key %s should be an array of strings", key)
 

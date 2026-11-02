@@ -87,7 +87,7 @@ func (b *Bdiscord) messageUpdate(s *discordgo.Session, m *discordgo.MessageUpdat
 		msg := &discordgo.MessageCreate{
 			Message: m.Message,
 		}
-		b.messageCreate(s, msg)
+		b.relayMessage(s, msg, true)
 	}
 }
 
@@ -131,6 +131,10 @@ func (b *Bdiscord) handleQuote(s *discordgo.Session, m *discordgo.Message, msg s
 }
 
 func (b *Bdiscord) messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) { //nolint:unparam
+	b.relayMessage(s, m, false)
+}
+
+func (b *Bdiscord) relayMessage(s *discordgo.Session, m *discordgo.MessageCreate, isEdit bool) { //nolint:gocyclo,funlen
 	if m.GuildID != b.guildID {
 		b.Log.Debugf("Ignoring messageCreate because it originates from a different guild")
 		return
@@ -146,7 +150,8 @@ func (b *Bdiscord) messageCreate(s *discordgo.Session, m *discordgo.MessageCreat
 		return
 	}
 
-	rmsg := config.Message{Account: b.Account, Avatar: "https://cdn.discordapp.com/avatars/" + m.Author.ID + "/" + m.Author.Avatar + ".jpg", UserID: "@" + m.Author.Username, ID: m.ID, Extra: make(map[string][]any)} // here we use .jpg over .webp for wider support across bridges and clients in general. discord automatically converts as needed anyhow.
+	// UserID is the numeric Discord id (upstream behaviour; API clients rely on it to recognise people).
+	rmsg := config.Message{Account: b.Account, Avatar: b.avatarURL(m.Author, m.Member, m.WebhookID != ""), UserID: m.Author.ID, ID: m.ID, IsEdit: isEdit, Extra: make(map[string][]any)}
 
 	b.Log.Debugf("== Receiving event %#v", m.Message)
 
@@ -186,8 +191,10 @@ func (b *Bdiscord) messageCreate(s *discordgo.Session, m *discordgo.MessageCreat
 		rmsg.Event = config.EventUserAction
 	}
 
-	// Replace emotes
-	rmsg.Text = replaceEmotes(rmsg.Text)
+	// Replace emotes (custom emoji markup can be kept for destinations that map it, see PreserveCustomEmoji)
+	if !b.GetBool("PreserveCustomEmoji") {
+		rmsg.Text = replaceEmotes(rmsg.Text)
+	}
 
 	// Handle Reply thread
 	rmsg.Text = b.handleQuote(s, m.Message, rmsg.Text)
@@ -202,8 +209,11 @@ func (b *Bdiscord) messageCreate(s *discordgo.Session, m *discordgo.MessageCreat
 		return
 	}
 
-	// if no attachments, send the message as-is
-	if len(m.Attachments) == 0 {
+	// if no attachments (or this is an edit: attachments can't change), send the message as-is
+	if len(m.Attachments) == 0 || isEdit {
+		if rmsg.Text == "" {
+			return
+		}
 		b.Log.Debugf("<= Sending message from %s on %s to gateway", m.Author.Username, b.Account)
 		b.Log.Debugf("<= Message is %#v", rmsg)
 
