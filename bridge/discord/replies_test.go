@@ -1,6 +1,12 @@
 package bdiscord
 
-import "testing"
+import (
+	"encoding/json"
+	"testing"
+
+	"github.com/matterbridge-org/matterbridge/bridge/config"
+	"github.com/stretchr/testify/assert"
+)
 
 func TestReplySnippet(t *testing.T) {
 	cases := []struct {
@@ -29,4 +35,14 @@ func TestReplySnippet(t *testing.T) {
 	if got := []rune(replySnippet(long, false, false)); len(got) != 81 {
 		t.Errorf("long snippet is %d runes", len(got))
 	}
+}
+
+func TestReplyPing(t *testing.T) {
+	assert.True(t, replyPing(&config.Message{}), "a reply pings by default")
+	assert.False(t, replyPing(&config.Message{Extra: map[string][]any{"reply_ping": {false}}}), "a silent reply stays silent")
+	assert.True(t, replyPing(&config.Message{Extra: map[string][]any{"reply_ping": {true}}}))
+
+	var m config.Message // as an API client sends it
+	assert.NoError(t, json.Unmarshal([]byte(`{"text":"x","Extra":{"reply_ping":[false]}}`), &m))
+	assert.False(t, replyPing(&m))
 }

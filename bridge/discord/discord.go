@@ -314,9 +314,9 @@ func (b *Bdiscord) Send(msg config.Message) (string, error) {
 	useWebhooks := b.shouldMessageUseWebhooks(&msg)
 
 	// Webhooks can't make real replies. With WebhookReplies the reply stays a webhook post (sender's name and avatar)
-	// and gets a header pointing at (and pinging the author of) the message it answers.
+	// and gets a header pointing at (and, unless the reply was silent, pinging the author of) the message it answers.
 	if useWebhooks && msg.ParentValid() && msg.Event != config.EventMsgDelete && b.GetBool("WebhookReplies") {
-		if header := b.replyHeader(channelID, threadID, msg.ParentID); header != "" {
+		if header := b.replyHeader(channelID, threadID, msg.ParentID, replyPing(&msg)); header != "" {
 			msg.Text = header + "\n" + msg.Text
 		}
 		msg.ParentID = ""
@@ -410,6 +410,7 @@ func (b *Bdiscord) handleEventBotUser(msg *config.Message, channelID string) (st
 				ChannelID: channelID,
 				GuildID:   b.guildID,
 			}
+			m.AllowedMentions = b.replyAllowedMentions(replyPing(msg))
 		}
 
 		// Post normal message

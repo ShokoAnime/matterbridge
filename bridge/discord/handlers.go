@@ -260,6 +260,18 @@ func (b *Bdiscord) relayMessage(s *discordgo.Session, m *discordgo.MessageCreate
 	}
 	rmsg.Text = b.handleQuote(s, m.Message, rmsg.Text)
 
+	// A reply pings its author unless the sender turned that off; Discord then leaves the author out of the mentions.
+	// API clients copy the choice (Extra["reply_ping"]).
+	if ref := m.ReferencedMessage; ref != nil && ref.Author != nil {
+		ping := false
+		for _, u := range m.Mentions {
+			if u != nil && u.ID == ref.Author.ID {
+				ping = true
+			}
+		}
+		rmsg.Extra["reply_ping"] = []any{ping}
+	}
+
 	// Add our parent id if it exists, and if it's not referring to a message in another channel
 	if ref := m.MessageReference; ref != nil && ref.ChannelID == m.ChannelID {
 		rmsg.ParentID = ref.MessageID

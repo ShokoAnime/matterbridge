@@ -5,12 +5,15 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+
+	"github.com/bwmarrin/discordgo"
+	"github.com/matterbridge-org/matterbridge/bridge/config"
 )
 
 // replyHeader is the first line of a webhook post that answers parentID: "-# ↪ <who> · [snippet](jump link)".
-// <who> pings the parent's author when that is a real Discord user (as a native reply would); a bridged (webhook)
-// author is shown by name. Returns "" if the parent can't be found.
-func (b *Bdiscord) replyHeader(channelID, threadID, parentID string) string {
+// <who> pings the parent's author when that is a real Discord user and the reply pinged (as a native reply would);
+// after a silent reply, or for a bridged (webhook) author, it is their name. Returns "" if the parent can't be found.
+func (b *Bdiscord) replyHeader(channelID, threadID, parentID string, ping bool) string {
 	ch := channelID
 	if threadID != "" {
 		ch = threadID
@@ -25,9 +28,12 @@ func (b *Bdiscord) replyHeader(channelID, threadID, parentID string) string {
 	}
 	who := ""
 	if pm.Author != nil {
-		if pm.WebhookID == "" && !pm.Author.Bot {
+		switch {
+		case pm.WebhookID == "" && !pm.Author.Bot && ping:
 			who = "<@" + pm.Author.ID + ">"
-		} else {
+		case pm.WebhookID == "" && !pm.Author.Bot: // a silent reply: the name, like Discord shows it, without a ping
+			who = "**" + escapeMarkdown(b.getNick(pm.Author, b.guildID)) + "**"
+		default:
 			who = "**" + escapeMarkdown(pm.Author.Username) + "**"
 		}
 	}
@@ -88,3 +94,25 @@ func replySnippet(content string, hasFiles, hasEmbeds bool) string {
 var markdownEscaper = strings.NewReplacer("[", "\\[", "]", "\\]", "*", "\\*", "_", "\\_", "`", "\\`", "~", "\\~", "|", "\\|")
 
 func escapeMarkdown(s string) string { return markdownEscaper.Replace(s) }
+
+// replyPing reports whether a bridged reply should ping the author it answers: Extra["reply_ping"] when the source
+// said (a silent reply says false), else true, which is what a reply does by default.
+func replyPing(msg *config.Message) bool {
+	if v := msg.Extra["reply_ping"]; len(v) > 0 {
+		if p, ok := v[0].(bool); ok {
+			return p
+		}
+	}
+	return true
+}
+
+// replyAllowedMentions is the bot's allowed mentions for a real reply: as configured, plus whether to ping the author.
+func (b *Bdiscord) replyAllowedMentions(ping bool) *discordgo.MessageAllowedMentions {
+	am := b.getAllowedMentions()
+	if am == nil { // nothing configured: Discord's default, everything
+		am = &discordgo.MessageAllowedMentions{Parse: []discordgo.AllowedMentionType{
+			discordgo.AllowedMentionTypeUsers, discordgo.AllowedMentionTypeRoles, discordgo.AllowedMentionTypeEveryone}}
+	}
+	am.RepliedUser = ping
+	return am
+}
