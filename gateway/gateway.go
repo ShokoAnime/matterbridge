@@ -168,6 +168,8 @@ func (gw *Gateway) SendMessage( //nolint:gocyclo,funlen
 		break
 	case config.EventFileDelete: // exclude file delete event as the msg ID here is the native file ID that needs to be deleted
 		break
+	case config.EventReactionAdd, config.EventReactionRemove:
+		msg.ID = gw.reactionTargetID(rmsg, dest, channel)
 	default:
 		debugSendMessage = fmt.Sprintf("=> Sending %#v from %s (%s) to %s (%s)", msg, msg.Account, rmsg.Channel, dest.Account, channel.Name)
 		msg.ID = gw.getDestMsgID(rmsg.Protocol+" "+rmsg.ID, dest, channel)
@@ -179,7 +181,7 @@ func (gw *Gateway) SendMessage( //nolint:gocyclo,funlen
 
 	// An edit (or delete) of a message we have no mapping for would otherwise go out as a brand-new
 	// message. API clients keep their own mapping keyed on SourceID, so they still get it.
-	if (rmsg.IsEdit || msg.Event == config.EventMsgDelete) && msg.ID == "" && dest.Protocol != apiProtocol {
+	if (rmsg.IsEdit || msg.Event == config.EventMsgDelete || isReaction(msg.Event)) && msg.ID == "" && dest.Protocol != apiProtocol {
 		gw.logger.Debugf("=> Dropping edit/delete of unknown message %s for %s (%s)", msg.SourceID, dest.Account, channel.Name)
 		return "", nil
 	}

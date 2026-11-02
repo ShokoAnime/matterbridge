@@ -245,6 +245,8 @@ func (b *Bdiscord) Connect() error {
 	b.c.AddHandler(b.messageUpdate)
 	b.c.AddHandler(b.messageDelete)
 	b.c.AddHandler(b.messageDeleteBulk)
+	b.c.AddHandler(b.messageReactionAdd)
+	b.c.AddHandler(b.messageReactionRemove)
 	b.c.AddHandler(b.memberAdd)
 	b.c.AddHandler(b.memberRemove)
 	b.c.AddHandler(b.memberUpdate)
@@ -300,6 +302,13 @@ func (b *Bdiscord) Send(msg config.Message) (string, error) {
 
 	// a message for one of this channel's threads goes into that thread
 	threadID := b.threadFor(&msg, channelID)
+
+	if msg.Event == config.EventReactionAdd || msg.Event == config.EventReactionRemove {
+		if threadID != "" {
+			channelID = threadID
+		}
+		return "", b.handleReaction(&msg, channelID)
+	}
 
 	// Use webhook to send the message
 	useWebhooks := b.shouldMessageUseWebhooks(&msg)

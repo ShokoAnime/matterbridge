@@ -124,6 +124,9 @@ func (b *API) Send(msg config.Message) (string, error) {
 	}
 	_ = b.mrouter.Broadcast(data)
 
+	if isReactionEvent(msg.Event) {
+		return "", nil
+	}
 	if msg.ID != "" {
 		return msg.ID, nil
 	}
@@ -255,16 +258,21 @@ func (b *API) handleWebsocket(c echo.Context) error {
 }
 
 // acceptClientMessage sanitizes a message posted by an API client. Clients may set ID (their own message
-// id, so later edits/deletes and replies can be matched), Event "msg_delete", IsEdit and ParentID.
+// id, so later edits/deletes and replies can be matched), Event "msg_delete" / "reaction_add" / "reaction_remove"
+// (ID = the message reacted to, Extra["reaction"] = [{name, id, animated, remaining}]), IsEdit and ParentID.
 func (b *API) acceptClientMessage(m *config.Message) bool {
 	m.SourceID = ""
 	switch m.Event {
-	case "", config.EventUserAction, config.EventMsgDelete:
+	case "", config.EventUserAction, config.EventMsgDelete, config.EventReactionAdd, config.EventReactionRemove:
 	default:
 		return false
 	}
-	if m.Event == config.EventMsgDelete && m.ID == "" {
+	if (m.Event == config.EventMsgDelete || isReactionEvent(m.Event)) && m.ID == "" {
 		return false
 	}
 	return true
+}
+
+func isReactionEvent(event string) bool {
+	return event == config.EventReactionAdd || event == config.EventReactionRemove
 }

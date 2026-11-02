@@ -139,6 +139,11 @@ func (gw *Gateway) ignoreEvent(event string, dest *bridge.Bridge) bool {
 		if !dest.GetBool("ShowJoinPart") {
 			return true
 		}
+	case config.EventReactionAdd, config.EventReactionRemove:
+		// reactions are mirrored by the bridges' own bot accounts; only bridges that implement it get them
+		if _, ok := reactionSupport[dest.Protocol]; !ok {
+			return true
+		}
 	case config.EventTopicChange:
 		// only relay topic change when used in some way on other side
 		if !dest.GetBool("ShowTopicChange") && !dest.GetBool("SyncTopic") {

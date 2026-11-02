@@ -17,16 +17,20 @@ import (
 )
 
 const (
-	EventJoinLeave         = "join_leave" // left for backwards compatibility
-	EventJoin              = "join"
-	EventLeave             = "leave"
-	EventTopicChange       = "topic_change"
-	EventFailure           = "failure"
-	EventFileFailureSize   = "file_failure_size"
-	EventAvatarDownload    = "avatar_download"
-	EventRejoinChannels    = "rejoin_channels"
-	EventUserAction        = "user_action"
-	EventMsgDelete         = "msg_delete"
+	EventJoinLeave       = "join_leave" // left for backwards compatibility
+	EventJoin            = "join"
+	EventLeave           = "leave"
+	EventTopicChange     = "topic_change"
+	EventFailure         = "failure"
+	EventFileFailureSize = "file_failure_size"
+	EventAvatarDownload  = "avatar_download"
+	EventRejoinChannels  = "rejoin_channels"
+	EventUserAction      = "user_action"
+	EventMsgDelete       = "msg_delete"
+	// EventReactionAdd / EventReactionRemove: msg.ID is the message reacted to; Extra["reaction"] holds
+	// {name, id, animated} (id empty for unicode emoji) and, for removals, "remaining": how many still have it.
+	EventReactionAdd       = "reaction_add"
+	EventReactionRemove    = "reaction_remove"
 	EventFileDelete        = "file_delete"
 	EventAPIConnected      = "api_connected"
 	EventUserTyping        = "user_typing"

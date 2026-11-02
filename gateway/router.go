@@ -165,7 +165,7 @@ func (r *Router) handleReceive() {
 				msgIDs = append(msgIDs, gw.handleMessage(&msg, br)...)
 			}
 
-			if msg.ID != "" {
+			if msg.ID != "" && !isReaction(msg.Event) { // a reaction's ID is the message reacted to, not a new message
 				_, exists := gw.Messages.Get(msg.Protocol + " " + msg.ID)
 
 				// Only add the message ID if it doesn't already exist
