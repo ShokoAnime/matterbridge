@@ -4,7 +4,7 @@ require (
 	codeberg.org/jersey/lightning v0.9.5
 	github.com/Benau/tgsconverter v0.0.0-20210809170556-99f4a4f6337f
 	github.com/SevereCloud/vksdk/v2 v2.17.0
-	github.com/bwmarrin/discordgo v0.28.1
+	github.com/bwmarrin/discordgo v0.29.0
 	github.com/d5/tengo/v2 v2.17.0
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 	github.com/fluxer-flo/flo v0.0.0-20260702091205-cae77a3bf738

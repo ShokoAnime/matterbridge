@@ -29,8 +29,10 @@ const (
 	EventMsgDelete       = "msg_delete"
 	// EventReactionAdd / EventReactionRemove: msg.ID is the message reacted to; Extra["reaction"] holds
 	// {name, id, animated} (id empty for unicode emoji) and, for removals, "remaining": how many still have it.
-	EventReactionAdd       = "reaction_add"
-	EventReactionRemove    = "reaction_remove"
+	EventReactionAdd    = "reaction_add"
+	EventReactionRemove = "reaction_remove"
+	// EventEmbedsSuppressed: the message msg.ID had its embeds hidden (Discord's SUPPRESS_EMBEDS flag).
+	EventEmbedsSuppressed  = "embeds_suppressed"
 	EventFileDelete        = "file_delete"
 	EventAPIConnected      = "api_connected"
 	EventUserTyping        = "user_typing"

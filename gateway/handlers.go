@@ -144,6 +144,11 @@ func (gw *Gateway) ignoreEvent(event string, dest *bridge.Bridge) bool {
 		if _, ok := reactionSupport[dest.Protocol]; !ok {
 			return true
 		}
+	case config.EventEmbedsSuppressed:
+		// only API clients act on it (they hide embeds on their copy)
+		if dest.Protocol != apiProtocol {
+			return true
+		}
 	case config.EventTopicChange:
 		// only relay topic change when used in some way on other side
 		if !dest.GetBool("ShowTopicChange") && !dest.GetBool("SyncTopic") {

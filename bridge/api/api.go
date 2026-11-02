@@ -124,8 +124,8 @@ func (b *API) Send(msg config.Message) (string, error) {
 	}
 	_ = b.mrouter.Broadcast(data)
 
-	if isReactionEvent(msg.Event) {
-		return "", nil
+	if isReactionEvent(msg.Event) || msg.Event == config.EventEmbedsSuppressed {
+		return "", nil // not a new message: nothing to map
 	}
 	if msg.ID != "" {
 		return msg.ID, nil

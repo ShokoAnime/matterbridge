@@ -91,7 +91,22 @@ func (b *Bdiscord) messageUpdate(s *discordgo.Session, m *discordgo.MessageUpdat
 			Message: m.Message,
 		}
 		b.relayMessage(s, msg, true)
+		return
 	}
+	// Hiding a message's embeds (by its author, a moderator, or a bot like SaucyBot after it posts a better preview)
+	// is an update without an edit timestamp. Updates that only add link previews don't carry the flag.
+	if m.Flags&discordgo.MessageFlagsSuppressEmbeds != 0 && m.Author != nil {
+		b.relayEmbedsSuppressed(m.Message)
+	}
+}
+
+// relayEmbedsSuppressed tells API clients that a message's embeds were hidden; they hide them on their copy.
+func (b *Bdiscord) relayEmbedsSuppressed(m *discordgo.Message) {
+	rmsg := config.Message{Account: b.Account, Event: config.EventEmbedsSuppressed, ID: m.ID, UserID: m.Author.ID,
+		Username: m.Author.Username, Text: config.EventEmbedsSuppressed, Extra: make(map[string][]any)}
+	b.setChannel(&rmsg, m.ChannelID)
+	b.Log.Debugf("<= Sending embeds-suppressed for %s on %s to gateway", m.ID, b.Account)
+	b.Remote <- rmsg
 }
 
 func (b *Bdiscord) handleQuote(s *discordgo.Session, m *discordgo.Message, msg string) string {
@@ -206,6 +221,10 @@ func (b *Bdiscord) relayMessage(s *discordgo.Session, m *discordgo.MessageCreate
 		if e != nil && (e.Type == discordgo.EmbedTypeRich || e.Type == "") {
 			richEmbeds = append(richEmbeds, e)
 		}
+	}
+	// components V2 messages (no content or embeds, only layout components) become ordinary embeds
+	if m.Flags&discordgo.MessageFlagsIsComponentsV2 != 0 {
+		richEmbeds = append(richEmbeds, componentsToEmbeds(m.Components)...)
 	}
 	if len(richEmbeds) > 0 {
 		embeds := make([]any, 0, len(richEmbeds))
