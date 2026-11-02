@@ -16,8 +16,8 @@ func (b *Bdiscord) messageDelete(s *discordgo.Session, m *discordgo.MessageDelet
 		b.Log.Debugf("Ignoring messageDelete because it originates from a different guild")
 		return
 	}
-	rmsg := config.Message{Account: b.Account, ID: m.ID, Event: config.EventMsgDelete, Text: config.EventMsgDelete}
-	rmsg.Channel = b.getChannelName(m.ChannelID)
+	rmsg := config.Message{Account: b.Account, ID: m.ID, Event: config.EventMsgDelete, Text: config.EventMsgDelete, Extra: make(map[string][]any)}
+	b.setChannel(&rmsg, m.ChannelID)
 
 	b.Log.Debugf("<= Sending message from %s to gateway", b.Account)
 	b.Log.Debugf("<= Message is %#v", rmsg)
@@ -36,8 +36,9 @@ func (b *Bdiscord) messageDeleteBulk(s *discordgo.Session, m *discordgo.MessageD
 			ID:      msgID,
 			Event:   config.EventMsgDelete,
 			Text:    config.EventMsgDelete,
-			Channel: b.getChannelName(m.ChannelID),
+			Extra:   make(map[string][]any),
 		}
+		b.setChannel(&rmsg, m.ChannelID)
 
 		b.Log.Debugf("<= Sending message from %s to gateway", b.Account)
 		b.Log.Debugf("<= Message is %#v", rmsg)
@@ -143,6 +144,14 @@ func (b *Bdiscord) relayMessage(s *discordgo.Session, m *discordgo.MessageCreate
 	}
 	var err error
 
+	// only people's messages: not "thread created", thread starter copies, pins, joins, boosts...
+	switch m.Type {
+	case discordgo.MessageTypeDefault, discordgo.MessageTypeReply,
+		discordgo.MessageTypeChatInputCommand, discordgo.MessageTypeContextMenuCommand:
+	default:
+		return
+	}
+
 	// not relay our own messages
 	if m.Author.Username == b.nick {
 		return
@@ -166,8 +175,8 @@ func (b *Bdiscord) relayMessage(s *discordgo.Session, m *discordgo.MessageCreate
 		}
 	}
 
-	// set channel name
-	rmsg.Channel = b.getChannelName(m.ChannelID)
+	// set channel name (a thread's messages go to its parent channel's gateway, tagged with the thread)
+	b.setChannel(&rmsg, m.ChannelID)
 
 	fromWebhook := m.WebhookID != ""
 	if !fromWebhook && !b.GetBool("UseUserName") {
@@ -177,6 +186,17 @@ func (b *Bdiscord) relayMessage(s *discordgo.Session, m *discordgo.MessageCreate
 		if !fromWebhook && b.GetBool("UseDiscriminator") {
 			rmsg.Username += "#" + m.Author.Discriminator
 		}
+	}
+
+	// raw embeds for clients that can show them (the API bridge passes Extra through), plus the text without the
+	// embed summaries that ShowEmbeds adds below
+	if len(m.Message.Embeds) > 0 {
+		embeds := make([]any, 0, len(m.Message.Embeds))
+		for _, e := range m.Message.Embeds {
+			embeds = append(embeds, e)
+		}
+		rmsg.Extra["discord_embeds"] = embeds
+		rmsg.Extra["discord_text"] = []any{rmsg.Text}
 	}
 
 	// if we have embedded content add it to text

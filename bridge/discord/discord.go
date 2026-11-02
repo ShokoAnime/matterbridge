@@ -298,12 +298,18 @@ func (b *Bdiscord) Send(msg config.Message) (string, error) {
 		msg.ParentID = ""
 	}
 
+	// a message for one of this channel's threads goes into that thread
+	threadID := b.threadFor(&msg, channelID)
+
 	// Use webhook to send the message
 	useWebhooks := b.shouldMessageUseWebhooks(&msg)
 	if useWebhooks && msg.Event != config.EventMsgDelete && msg.ParentID == "" {
-		return b.handleEventWebhook(&msg, channelID)
+		return b.handleEventWebhook(&msg, channelID, threadID)
 	}
 
+	if threadID != "" { // the bot posts, edits and deletes in a thread by using it as the channel
+		channelID = threadID
+	}
 	return b.handleEventBotUser(&msg, channelID)
 }
 
