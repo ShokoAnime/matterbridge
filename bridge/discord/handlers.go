@@ -190,9 +190,16 @@ func (b *Bdiscord) relayMessage(s *discordgo.Session, m *discordgo.MessageCreate
 
 	// raw embeds for clients that can show them (the API bridge passes Extra through), plus the text without the
 	// embed summaries that ShowEmbeds adds below
-	if len(m.Message.Embeds) > 0 {
-		embeds := make([]any, 0, len(m.Message.Embeds))
-		for _, e := range m.Message.Embeds {
+	// Only bot-made ("rich") embeds count: link previews are rebuilt by every platform from the link itself.
+	var richEmbeds []*discordgo.MessageEmbed
+	for _, e := range m.Message.Embeds {
+		if e != nil && (e.Type == discordgo.EmbedTypeRich || e.Type == "") {
+			richEmbeds = append(richEmbeds, e)
+		}
+	}
+	if len(richEmbeds) > 0 {
+		embeds := make([]any, 0, len(richEmbeds))
+		for _, e := range richEmbeds {
 			embeds = append(embeds, e)
 		}
 		rmsg.Extra["discord_embeds"] = embeds
@@ -200,8 +207,8 @@ func (b *Bdiscord) relayMessage(s *discordgo.Session, m *discordgo.MessageCreate
 	}
 
 	// if we have embedded content add it to text
-	if b.GetBool("ShowEmbeds") && m.Message.Embeds != nil {
-		for _, embed := range m.Message.Embeds {
+	if b.GetBool("ShowEmbeds") {
+		for _, embed := range richEmbeds {
 			rmsg.Text += b.handleEmbed(embed)
 		}
 	}
