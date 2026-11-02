@@ -211,6 +211,12 @@ func (gw *Gateway) SendMessage( //nolint:gocyclo,funlen
 	if msg.ParentID == "" {
 		msg.ParentID = strings.Replace(canonicalParentMsgID, dest.Protocol+" ", "", 1)
 	}
+	// An API client may name the parent by its id on the destination ("discord 123"), e.g. for history imported
+	// before the bridge kept mappings.
+	if msg.ParentID == "" && rmsg.Protocol == apiProtocol && strings.HasPrefix(rmsg.ParentID, dest.Protocol+" ") &&
+		dest.GetBool("PreserveThreading") {
+		msg.ParentID = strings.TrimPrefix(rmsg.ParentID, dest.Protocol+" ")
+	}
 
 	// if the parentID is still empty and we have a parentID set in the original message
 	// this means that we didn't find it in the cache so set it to a "msg-parent-not-found" constant

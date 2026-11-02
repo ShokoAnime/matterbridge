@@ -225,7 +225,10 @@ func (b *Bdiscord) relayMessage(s *discordgo.Session, m *discordgo.MessageCreate
 		rmsg.Text = replaceEmotes(rmsg.Text)
 	}
 
-	// Handle Reply thread
+	// Handle Reply thread (API clients that make real replies get the text without the quote in Extra["discord_text"])
+	if m.MessageReference != nil && len(rmsg.Extra["discord_text"]) == 0 {
+		rmsg.Extra["discord_text"] = []any{rmsg.Text}
+	}
 	rmsg.Text = b.handleQuote(s, m.Message, rmsg.Text)
 
 	// Add our parent id if it exists, and if it's not referring to a message in another channel

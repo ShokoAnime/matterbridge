@@ -97,6 +97,20 @@ render or map it (Discord, Fluxer, API clients) receive it as is; for all others
   PreserveCustomEmoji=true
   ```
 
+## WebhookReplies
+
+Discord webhooks can't make real replies, so by default a reply from another bridge is posted by the bot account
+(losing the sender's name and avatar). With this setting the reply stays a webhook post and starts with a small
+header line: `↪ @author · [first words of the message](jump link)`. The author is pinged when they are a Discord
+user, as a native reply would. Needs `PreserveThreading=true` so the gateway passes the parent along.
+
+- Setting: **OPTIONAL**, **RELOADABLE**
+- Format: *boolean*
+- Example:
+  ```toml
+  WebhookReplies=true
+  ```
+
 ## UseUserName
 
 Shows the username instead of the server nickname

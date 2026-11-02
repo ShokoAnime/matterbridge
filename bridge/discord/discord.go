@@ -312,6 +312,16 @@ func (b *Bdiscord) Send(msg config.Message) (string, error) {
 
 	// Use webhook to send the message
 	useWebhooks := b.shouldMessageUseWebhooks(&msg)
+
+	// Webhooks can't make real replies. With WebhookReplies the reply stays a webhook post (sender's name and avatar)
+	// and gets a header pointing at (and pinging the author of) the message it answers.
+	if useWebhooks && msg.ParentValid() && msg.Event != config.EventMsgDelete && b.GetBool("WebhookReplies") {
+		if header := b.replyHeader(channelID, threadID, msg.ParentID); header != "" {
+			msg.Text = header + "\n" + msg.Text
+		}
+		msg.ParentID = ""
+	}
+
 	if useWebhooks && msg.Event != config.EventMsgDelete && msg.ParentID == "" {
 		return b.handleEventWebhook(&msg, channelID, threadID)
 	}

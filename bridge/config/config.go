@@ -153,6 +153,7 @@ type Protocol struct {
 	DisableWebPagePreview  bool     // telegram
 	EditSuffix             string   // mattermost, slack, discord, telegram
 	PreserveCustomEmoji    bool     // discord: keep <:name:id> markup (the gateway strips it for bridges that can't use it)
+	WebhookReplies         bool     // discord: replies stay webhook posts, with a header linking (and pinging) the parent
 	EditDisable            bool     // mattermost, slack, discord, telegram
 	EditMaxDays            int      // discord
 	EmbedFormat            string   // discord
