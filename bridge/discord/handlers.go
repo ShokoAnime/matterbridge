@@ -301,7 +301,7 @@ func (b *Bdiscord) relayMessage(s *discordgo.Session, m *discordgo.MessageCreate
 	go func() {
 		count := 0
 		for _, attach := range m.Attachments {
-			err := b.AddAttachmentFromURL(&rmsg, attach.Filename, attach.ID, "", attach.URL)
+			err := b.AddAttachmentFromURL(&rmsg, attachmentName(attach), attach.ID, "", attach.URL)
 			if err != nil {
 				b.Log.WithError(err).Warnf("Failed to download attachment %s", attach.Filename)
 				// too big to carry along: link it instead, so the other side still gets the file
@@ -475,4 +475,17 @@ func (b *Bdiscord) handleEmbed(embed *discordgo.MessageEmbed) string {
 	}
 
 	return result
+}
+
+// attachmentIsSpoiler is Discord's IS_SPOILER attachment flag (discordgo has no name for it).
+const attachmentIsSpoiler discordgo.MessageAttachmentFlags = 1 << 3
+
+// attachmentName is the name an attachment crosses the bridge with. Discord marks a spoiler with an attachment flag now
+// (the file keeps its own name); the other side only sees the name, so a spoiler gets the SPOILER_ prefix Discord
+// itself used to put on it, and still honours on upload.
+func attachmentName(a *discordgo.MessageAttachment) string {
+	if a.Flags&attachmentIsSpoiler != 0 && !strings.HasPrefix(a.Filename, "SPOILER_") {
+		return "SPOILER_" + a.Filename
+	}
+	return a.Filename
 }

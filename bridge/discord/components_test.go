@@ -54,3 +54,19 @@ func TestComponentsToEmbedsNothingToShow(t *testing.T) {
 	require.NoError(t, json.Unmarshal([]byte(`{"id":"1","flags":32768,"components":[{"type":17,"components":[{"type":14}]}]}`), &m))
 	assert.Empty(t, componentsToEmbeds(m.Components))
 }
+
+func TestAttachmentNameMarksSpoilers(t *testing.T) {
+	cases := []struct {
+		a    discordgo.MessageAttachment
+		want string
+	}{
+		{discordgo.MessageAttachment{Filename: "image.png"}, "image.png"},
+		{discordgo.MessageAttachment{Filename: "image.png", Flags: attachmentIsSpoiler}, "SPOILER_image.png"},
+		{discordgo.MessageAttachment{Filename: "SPOILER_image.png", Flags: attachmentIsSpoiler}, "SPOILER_image.png"},
+	}
+	for _, c := range cases {
+		if got := attachmentName(&c.a); got != c.want {
+			t.Errorf("attachmentName(%q, flags %d) = %q, want %q", c.a.Filename, c.a.Flags, got, c.want)
+		}
+	}
+}
